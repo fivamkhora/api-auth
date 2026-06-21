@@ -25,6 +25,7 @@ export class UserRepository implements IUserRepository {
         'person.name AS name',
         'person.birth AS birth',
         'person.email AS email',
+        'person.role AS role',
         'person.user_id AS user_id',
       ])
       .where('user.id = :user_id', { user_id })
@@ -43,3 +44,4 @@ export class UserRepository implements IUserRepository {
     return this.repository.save(user)
   }
 }
+

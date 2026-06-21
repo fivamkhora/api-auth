@@ -19,6 +19,7 @@ export class CreateUserAndPersonTables1718580000000 implements MigrationInterfac
         name VARCHAR(255) NOT NULL,
         birth DATE NOT NULL,
         email VARCHAR(255) NOT NULL,
+        role VARCHAR(20) NOT NULL CHECK (role IN ('Professor', 'Aluno')),
         user_id INTEGER REFERENCES "user"(id)
       )
     `)
@@ -29,3 +30,4 @@ export class CreateUserAndPersonTables1718580000000 implements MigrationInterfac
     await queryRunner.query('DROP TABLE IF EXISTS "user"')
   }
 }
+

@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm'
 
-import { IPerson } from '@/entities/models/person.interface'
+import { IPerson, PersonRole } from '@/entities/models/person.interface'
 
 @Entity({ name: 'person' })
 export class Person implements IPerson {
@@ -19,10 +19,19 @@ export class Person implements IPerson {
   @Column({ type: 'varchar' })
   email!: string
 
+  @Column({ type: 'varchar' })
+  role!: PersonRole
+
   @Column({ type: 'integer', nullable: true })
   user_id?: number
 
-  constructor(cpf?: string, name?: string, birth?: Date, email?: string) {
+  constructor(
+    cpf?: string,
+    name?: string,
+    birth?: Date,
+    email?: string,
+    role?: PersonRole,
+  ) {
     if (cpf) {
       this.cpf = cpf
     }
@@ -37,6 +46,10 @@ export class Person implements IPerson {
 
     if (email) {
       this.email = email
+    }
+
+    if (role) {
+      this.role = role
     }
   }
 }
