@@ -20,7 +20,10 @@ export async function signIn(request: FastifyRequest, reply: FastifyReply) {
     throw new InvalidCredentialsError()
   }
 
-  const token = await reply.jwtSign({ username })
+  const token = await reply.jwtSign(
+    { username, role: user.role },
+    { sign: { sub: String(user.id) } },
+  )
 
-  return reply.status(200).send({ token })
+  return reply.status(200).send({ token, role: user.role })
 }

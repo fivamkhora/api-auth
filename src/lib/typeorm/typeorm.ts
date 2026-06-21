@@ -5,6 +5,7 @@ import { User } from '@/entities/user.entity'
 import { env } from '@/env'
 import { CreateUserAndPersonTables1718580000000 } from '@/lib/typeorm/migrations/1718580000000-create-user-and-person-tables'
 import { AddRoleToPersonTable1718666400000 } from '@/lib/typeorm/migrations/1718666400000-add-role-to-person-table'
+import { AddRoleToUserTable1718752800000 } from '@/lib/typeorm/migrations/1718752800000-add-role-to-user-table'
 
 export const appDataSource = new DataSource({
   type: 'postgres',
@@ -17,6 +18,7 @@ export const appDataSource = new DataSource({
   migrations: [
     CreateUserAndPersonTables1718580000000,
     AddRoleToPersonTable1718666400000,
+    AddRoleToUserTable1718752800000,
   ],
   logging: env.NODE_ENV === 'development',
 })
@@ -33,4 +35,3 @@ export const initializeTypeORM = appDataSource
 
     throw error
   })
-
