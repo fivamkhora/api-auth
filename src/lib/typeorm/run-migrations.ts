@@ -3,7 +3,7 @@ import 'reflect-metadata'
 import { appDataSource, initializeTypeORM } from '@/lib/typeorm/typeorm'
 
 async function runMigrations() {
-  await initializeTypeORM
+  await initializeTypeORM()
 
   await appDataSource.runMigrations()
   await appDataSource.destroy()

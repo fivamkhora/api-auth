@@ -23,15 +23,19 @@ export const appDataSource = new DataSource({
   logging: env.NODE_ENV === 'development',
 })
 
-export const initializeTypeORM = appDataSource
-  .initialize()
-  .then(() => {
+export async function initializeTypeORM() {
+  if (appDataSource.isInitialized) {
+    return appDataSource
+  }
+
+  try {
+    await appDataSource.initialize()
     console.log('TypeORM connection initialized')
 
     return appDataSource
-  })
-  .catch((error: unknown) => {
+  } catch (error: unknown) {
     console.error('Error during TypeORM connection initialization', error)
 
     throw error
-  })
+  }
+}
