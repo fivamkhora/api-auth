@@ -1,5 +1,4 @@
 import 'reflect-metadata'
-import '@/lib/typeorm/typeorm'
 
 import fastify from 'fastify'
 import fastifyJwt from '@fastify/jwt'
