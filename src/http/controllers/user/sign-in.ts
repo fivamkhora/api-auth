@@ -25,5 +25,17 @@ export async function signIn(request: FastifyRequest, reply: FastifyReply) {
     { sign: { sub: String(user.id) } },
   )
 
-  return reply.status(200).send({ token, role: user.role })
+  return reply.status(200).send({
+    token,
+    role: user.role,
+    user: {
+      id: user.id,
+      username: user.username,
+      cpf: user.cpf,
+      name: user.name,
+      birth: user.birth,
+      email: user.email,
+      user_id: user.user_id,
+    },
+  })
 }

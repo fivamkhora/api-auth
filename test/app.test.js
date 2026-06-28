@@ -46,11 +46,16 @@ describe('API Auth', () => {
   })
 
   it('creates a user and does not expose the password', async () => {
-    mocks.createUser.handler = async (user) => ({
+    mocks.createUser.handler = async (user, person) => ({
       id: 1,
       username: user.username,
       password: user.password,
       role: user.role,
+      cpf: person.cpf,
+      name: person.name,
+      birth: person.birth,
+      email: person.email,
+      user_id: 1,
     })
 
     const response = await app.inject({
@@ -60,6 +65,12 @@ describe('API Auth', () => {
         username: 'maria',
         password: '123456',
         role: PersonRole.ALUNO,
+        person: {
+          cpf: '00000000000',
+          name: 'Maria',
+          birth: '2000-01-01',
+          email: 'maria@example.com',
+        },
       },
     })
     const body = response.json()
@@ -69,6 +80,11 @@ describe('API Auth', () => {
       id: 1,
       username: 'maria',
       role: PersonRole.ALUNO,
+      cpf: '00000000000',
+      name: 'Maria',
+      birth: '2000-01-01T00:00:00.000Z',
+      email: 'maria@example.com',
+      user_id: 1,
     })
   })
 
@@ -78,6 +94,11 @@ describe('API Auth', () => {
       username: 'maria',
       password: await hash('123456', 8),
       role: PersonRole.ALUNO,
+      cpf: '00000000000',
+      name: 'Maria',
+      birth: new Date('2000-01-01'),
+      email: 'maria@example.com',
+      user_id: 1,
     })
 
     const response = await app.inject({
@@ -94,6 +115,9 @@ describe('API Auth', () => {
     assert.equal(body.role, PersonRole.ALUNO)
     assert.equal(typeof body.token, 'string')
     assert.ok(body.token.length > 0)
+    assert.equal(body.user.id, 1)
+    assert.equal(body.user.username, 'maria')
+    assert.equal(body.user.email, 'maria@example.com')
   })
 
   it('rejects invalid credentials', async () => {

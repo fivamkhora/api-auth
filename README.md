@@ -10,6 +10,7 @@ API de autenticacao e autorizacao de usuarios desenvolvida com Fastify, TypeScri
 - [Configuracao](#configuracao)
 - [Execucao](#execucao)
 - [Banco de dados](#banco-de-dados)
+- [Diagrama de entidades](#diagrama-de-entidades)
 - [Autenticacao](#autenticacao)
 - [Rotas da aplicacao](#rotas-da-aplicacao)
 - [Contratos da API](#contratos-da-api)
@@ -22,6 +23,7 @@ API de autenticacao e autorizacao de usuarios desenvolvida com Fastify, TypeScri
 O sistema expoe uma API HTTP para:
 
 - criar usuarios com senha criptografada;
+- vincular dados complementares de pessoa ao usuario;
 - autenticar usuarios com `username` e `password`;
 - gerar token JWT;
 - proteger rotas privadas com Bearer Token;
@@ -158,6 +160,63 @@ As migrations ficam em:
 src/lib/typeorm/migrations
 ```
 
+Tambem existe um script SQL para execucao manual das migrations:
+
+```text
+docs/manual-migrations.sql
+```
+
+Exemplo de execucao manual com `psql`:
+
+```bash
+psql -h localhost -p 5432 -U postgres -d api_auth -f docs/manual-migrations.sql
+```
+
+## Diagrama de Entidades
+
+```mermaid
+erDiagram
+  USER {
+    int id PK "serial"
+    varchar username UK "obrigatorio"
+    varchar password "hash bcrypt"
+    varchar role "Aluno | Professor"
+  }
+
+  PERSON {
+    int id PK "serial"
+    varchar cpf "obrigatorio"
+    varchar name "obrigatorio"
+    date birth "obrigatorio"
+    varchar email "obrigatorio"
+    varchar role "Aluno | Professor"
+    int user_id FK "opcional"
+  }
+
+  USER ||--o| PERSON : "possui perfil"
+```
+
+### Regras do Modelo
+
+- `user.id` e a chave primaria da tabela `"user"`.
+- `user.username` e unico e usado no login.
+- `user.password` armazena o hash da senha, nao a senha em texto puro.
+- `user.role` aceita apenas `Aluno` ou `Professor`.
+- `person.id` e a chave primaria da tabela `person`.
+- `person.user_id` referencia `user.id` e pode ser nulo.
+- A consulta `GET /user/:id` faz `LEFT JOIN` entre `"user"` e `person`, usando `person.user_id = user.id`.
+- Quando existe registro em `person`, a API prioriza `person.role`; caso contrario, usa `user.role`.
+
+### Relacionamento
+
+O relacionamento atual permite que um usuario tenha zero ou um registro complementar em `person`.
+
+Na pratica:
+
+- um usuario pode existir apenas na tabela `"user"`;
+- um usuario pode ter dados complementares em `person`;
+- `person.user_id` e opcional, entao tambem podem existir registros de pessoa ainda nao vinculados a um usuario.
+
 ## Autenticacao
 
 O login retorna um JWT. Para acessar rotas privadas, envie o token no header:
@@ -200,7 +259,13 @@ Body:
 {
   "username": "maria",
   "password": "123456",
-  "role": "Aluno"
+  "role": "Aluno",
+  "person": {
+    "cpf": "00000000000",
+    "name": "Maria",
+    "birth": "2000-01-01",
+    "email": "maria@example.com"
+  }
 }
 ```
 
@@ -210,16 +275,23 @@ Resposta `201`:
 {
   "id": 1,
   "username": "maria",
-  "role": "Aluno"
+  "role": "Aluno",
+  "cpf": "00000000000",
+  "name": "Maria",
+  "birth": "2000-01-01T00:00:00.000Z",
+  "email": "maria@example.com",
+  "user_id": 1
 }
 ```
+
+O objeto `person` e opcional. Quando informado, a API cria o registro em `person` e vincula com `person.user_id = user.id`.
 
 Exemplo com `curl`:
 
 ```bash
 curl -X POST http://localhost:3000/user \
   -H "Content-Type: application/json" \
-  -d '{"username":"maria","password":"123456","role":"Aluno"}'
+  -d '{"username":"maria","password":"123456","role":"Aluno","person":{"cpf":"00000000000","name":"Maria","birth":"2000-01-01","email":"maria@example.com"}}'
 ```
 
 ### Login
@@ -243,9 +315,20 @@ Resposta `200`:
 ```json
 {
   "token": "<jwt>",
-  "role": "Aluno"
+  "role": "Aluno",
+  "user": {
+    "id": 1,
+    "username": "maria",
+    "cpf": "00000000000",
+    "name": "Maria",
+    "birth": "2000-01-01T00:00:00.000Z",
+    "email": "maria@example.com",
+    "user_id": 1
+  }
 }
 ```
+
+O campo `role` retornado usa `person.role` quando houver pessoa vinculada; caso contrario usa `user.role`.
 
 Exemplo com `curl`:
 
