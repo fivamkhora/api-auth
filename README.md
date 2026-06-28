@@ -1,6 +1,40 @@
 # API Auth
 
-API de autenticacao e consulta de usuarios usando Fastify, TypeScript, JWT, TypeORM e PostgreSQL.
+API de autenticacao e autorizacao de usuarios desenvolvida com Fastify, TypeScript, JWT, TypeORM e PostgreSQL.
+
+## Sumario
+
+- [Visao geral](#visao-geral)
+- [Tecnologias](#tecnologias)
+- [Requisitos](#requisitos)
+- [Configuracao](#configuracao)
+- [Execucao](#execucao)
+- [Banco de dados](#banco-de-dados)
+- [Autenticacao](#autenticacao)
+- [Rotas da aplicacao](#rotas-da-aplicacao)
+- [Contratos da API](#contratos-da-api)
+- [Testes](#testes)
+- [Docker](#docker)
+- [Estrutura do projeto](#estrutura-do-projeto)
+
+## Visao Geral
+
+O sistema expoe uma API HTTP para:
+
+- criar usuarios com senha criptografada;
+- autenticar usuarios com `username` e `password`;
+- gerar token JWT;
+- proteger rotas privadas com Bearer Token;
+- consultar dados de usuario autenticado por ID.
+
+As rotas publicas sao:
+
+- `POST /user`
+- `POST /user/signin`
+
+A rota privada atual e:
+
+- `GET /user/:id`
 
 ## Tecnologias
 
@@ -9,7 +43,7 @@ API de autenticacao e consulta de usuarios usando Fastify, TypeScript, JWT, Type
 - Fastify
 - TypeORM
 - PostgreSQL
-- JWT
+- JWT com `@fastify/jwt`
 - Zod
 - Bcrypt
 
@@ -17,11 +51,14 @@ API de autenticacao e consulta de usuarios usando Fastify, TypeScript, JWT, Type
 
 - Node.js 22 ou superior
 - npm
-- Docker e Docker Compose, se for usar o PostgreSQL via container
+- Docker e Docker Compose, se for usar banco via container
+- PostgreSQL 16, se for rodar o banco localmente sem Docker
 
 ## Configuracao
 
-Crie um arquivo `.env` na raiz do projeto com base no `.env.example`:
+Crie um arquivo `.env` na raiz do projeto com base no `.env.example`.
+
+Exemplo:
 
 ```env
 PORT=3000
@@ -34,18 +71,20 @@ DATABASE_PORT=5432
 JWT_SECRET=segredo_local
 ```
 
-Variaveis:
+Variaveis obrigatorias:
 
-- `PORT`: porta HTTP da API.
-- `NODE_ENV`: ambiente da aplicacao (`development`, `production` ou `test`).
-- `DATABASE_USER`: usuario do PostgreSQL.
-- `DATABASE_HOST`: host do PostgreSQL.
-- `DATABASE_NAME`: nome do banco.
-- `DATABASE_PASSWORD`: senha do banco.
-- `DATABASE_PORT`: porta do PostgreSQL.
-- `JWT_SECRET`: segredo usado para assinar os tokens JWT.
+| Variavel | Descricao |
+| --- | --- |
+| `PORT` | Porta HTTP da API. |
+| `NODE_ENV` | Ambiente da aplicacao: `development`, `production` ou `test`. |
+| `DATABASE_USER` | Usuario do PostgreSQL. |
+| `DATABASE_HOST` | Host do PostgreSQL. Em Docker Compose, use o nome do servico quando a API tambem estiver em container. |
+| `DATABASE_NAME` | Nome do banco de dados. |
+| `DATABASE_PASSWORD` | Senha do PostgreSQL. |
+| `DATABASE_PORT` | Porta do PostgreSQL. |
+| `JWT_SECRET` | Segredo usado para assinar e validar tokens JWT. |
 
-## Como Executar
+## Execucao
 
 Instale as dependencias:
 
@@ -53,7 +92,7 @@ Instale as dependencias:
 npm install
 ```
 
-Suba o banco com Docker Compose:
+Suba o PostgreSQL com Docker Compose:
 
 ```bash
 docker compose up -d
@@ -65,13 +104,13 @@ Execute as migrations:
 npm run migration:run
 ```
 
-Inicie a API em modo desenvolvimento:
+Inicie a API em desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-A API ficara disponivel em:
+URL padrao:
 
 ```text
 http://localhost:3000
@@ -79,50 +118,80 @@ http://localhost:3000
 
 ## Scripts
 
-- `npm run dev`: inicia a API com `tsx`.
-- `npm run build`: compila o TypeScript para `dist`.
-- `npm run migration:run`: executa as migrations do TypeORM.
-- `npm test`: executa os testes em `test/app.test.js`.
+| Comando | Descricao |
+| --- | --- |
+| `npm run dev` | Inicia a API com `tsx src/server.ts`. |
+| `npm run build` | Compila TypeScript para a pasta `dist`. |
+| `npm run migration:run` | Executa as migrations configuradas no TypeORM. |
+| `npm test` | Executa o roteiro de testes em `test/app.test.js`. |
 
-## Docker
+## Banco de Dados
 
-Build da imagem:
+O projeto usa PostgreSQL com TypeORM.
 
-```bash
-docker build -f docker/Dockerfile -t api-auth .
-```
+Tabelas principais:
 
-Executar a imagem:
+### `user`
 
-```bash
-docker run --env-file .env -p 3000:3000 api-auth
+| Campo | Tipo | Observacao |
+| --- | --- | --- |
+| `id` | serial | Chave primaria. |
+| `username` | varchar | Obrigatorio e unico. |
+| `password` | varchar | Hash da senha. |
+| `role` | varchar | Deve ser `Aluno` ou `Professor`. |
+
+### `person`
+
+| Campo | Tipo | Observacao |
+| --- | --- | --- |
+| `id` | serial | Chave primaria. |
+| `cpf` | varchar | CPF da pessoa. |
+| `name` | varchar | Nome da pessoa. |
+| `birth` | date | Data de nascimento. |
+| `email` | varchar | E-mail. |
+| `role` | varchar | Deve ser `Aluno` ou `Professor`. |
+| `user_id` | integer | Referencia opcional para `user.id`. |
+
+As migrations ficam em:
+
+```text
+src/lib/typeorm/migrations
 ```
 
 ## Autenticacao
 
-As rotas `POST /user` e `POST /user/signin` sao publicas.
-
-As demais rotas exigem token JWT no header:
+O login retorna um JWT. Para acessar rotas privadas, envie o token no header:
 
 ```http
 Authorization: Bearer <token>
 ```
 
-O token e gerado pela rota de login.
+O token inclui:
 
-## Roles
+- `sub`: ID do usuario;
+- `username`: nome de usuario;
+- `role`: papel do usuario.
 
-Valores aceitos no campo `role`:
+As roles aceitas sao:
 
 - `Aluno`
 - `Professor`
 
-## Endpoints
+## Rotas da Aplicacao
+
+| Metodo | Rota | Autenticacao | Descricao |
+| --- | --- | --- | --- |
+| `POST` | `/user` | Publica | Cria um usuario. |
+| `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
+| `GET` | `/user/:id` | Bearer Token | Busca usuario por ID. |
+
+## Contratos da API
 
 ### Criar Usuario
 
 ```http
 POST /user
+Content-Type: application/json
 ```
 
 Body:
@@ -145,12 +214,19 @@ Resposta `201`:
 }
 ```
 
-Observacao: a senha e salva com hash e nao e retornada na resposta.
+Exemplo com `curl`:
+
+```bash
+curl -X POST http://localhost:3000/user \
+  -H "Content-Type: application/json" \
+  -d '{"username":"maria","password":"123456","role":"Aluno"}'
+```
 
 ### Login
 
 ```http
 POST /user/signin
+Content-Type: application/json
 ```
 
 Body:
@@ -171,23 +247,18 @@ Resposta `200`:
 }
 ```
 
-Resposta `401` quando as credenciais forem invalidas:
+Exemplo com `curl`:
 
-```json
-{
-  "message": "Username or password is incorrect"
-}
+```bash
+curl -X POST http://localhost:3000/user/signin \
+  -H "Content-Type: application/json" \
+  -d '{"username":"maria","password":"123456"}'
 ```
 
-### Buscar Usuario
+### Buscar Usuario por ID
 
 ```http
 GET /user/:id
-```
-
-Header:
-
-```http
 Authorization: Bearer <token>
 ```
 
@@ -206,7 +277,18 @@ Resposta `200`:
 }
 ```
 
-Resposta `401` sem token:
+Exemplo com `curl`:
+
+```bash
+curl http://localhost:3000/user/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+## Respostas de Erro
+
+### Token ausente ou invalido
+
+Status `401`:
 
 ```json
 {
@@ -214,7 +296,19 @@ Resposta `401` sem token:
 }
 ```
 
-Resposta `404` quando o usuario nao existir:
+### Credenciais invalidas
+
+Status `401`:
+
+```json
+{
+  "message": "Username or password is incorrect"
+}
+```
+
+### Recurso nao encontrado
+
+Status `404`:
 
 ```json
 {
@@ -222,9 +316,9 @@ Resposta `404` quando o usuario nao existir:
 }
 ```
 
-## Erros de Validacao
+### Erro de validacao
 
-Quando o corpo ou parametros da requisicao forem invalidos, a API retorna `400`:
+Status `400`:
 
 ```json
 {
@@ -235,19 +329,81 @@ Quando o corpo ou parametros da requisicao forem invalidos, a API retorna `400`:
 }
 ```
 
-## Estrutura Principal
+### Erro interno
+
+Status `500`:
+
+```json
+{
+  "message": "Internal server error"
+}
+```
+
+## Testes
+
+O roteiro de testes da API fica em:
+
+```text
+test/app.test.js
+```
+
+Executar:
+
+```bash
+npm test
+```
+
+Os testes validam:
+
+- criacao de usuario;
+- login;
+- rejeicao de credenciais invalidas;
+- protecao de rota privada;
+- busca autenticada de usuario;
+- resposta `404` para usuario inexistente.
+
+## Docker
+
+Build da imagem:
+
+```bash
+docker build -f docker/Dockerfile -t api-auth .
+```
+
+Executar a API em container:
+
+```bash
+docker run --env-file .env -p 3000:3000 api-auth
+```
+
+Subir PostgreSQL e pgAdmin:
+
+```bash
+docker compose up -d
+```
+
+Servicos do `docker-compose.yml`:
+
+| Servico | Porta | Descricao |
+| --- | --- | --- |
+| `postgres` | `5432` | Banco PostgreSQL 16. |
+| `pgadmin` | `8080` | Interface web para administrar o banco. |
+
+## Estrutura do Projeto
 
 ```text
 src/
-  app.ts                         # configuracao do Fastify
+  app.ts                         # configuracao do Fastify, JWT, hooks e rotas
   server.ts                      # inicializacao HTTP e TypeORM
   env/                           # validacao das variaveis de ambiente
   entities/                      # entidades TypeORM
   http/controllers/user/         # rotas e controllers de usuario
-  http/middlewares/              # middleware JWT
+  http/middlewares/              # middleware de validacao JWT
   lib/typeorm/                   # datasource e migrations
-  repositories/                  # contratos e implementacoes
+  repositories/                  # contratos e implementacoes de persistencia
   use-cases/                     # regras de negocio
 test/
   app.test.js                    # roteiro de testes da API
+docker/
+  Dockerfile                     # imagem da aplicacao
 ```
