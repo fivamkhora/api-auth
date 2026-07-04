@@ -6,6 +6,7 @@ import { env } from '@/env'
 import { CreateUserAndPersonTables1718580000000 } from '@/lib/typeorm/migrations/1718580000000-create-user-and-person-tables'
 import { AddRoleToPersonTable1718666400000 } from '@/lib/typeorm/migrations/1718666400000-add-role-to-person-table'
 import { AddRoleToUserTable1718752800000 } from '@/lib/typeorm/migrations/1718752800000-add-role-to-user-table'
+import { MakePersonCpfBirthNullable1783123200000 } from '@/lib/typeorm/migrations/1783123200000-make-person-cpf-birth-nullable'
 
 export const appDataSource = new DataSource({
   type: 'postgres',
@@ -19,6 +20,7 @@ export const appDataSource = new DataSource({
     CreateUserAndPersonTables1718580000000,
     AddRoleToPersonTable1718666400000,
     AddRoleToUserTable1718752800000,
+    MakePersonCpfBirthNullable1783123200000,
   ],
   logging: env.NODE_ENV === 'development',
 })

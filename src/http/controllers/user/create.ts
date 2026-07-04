@@ -12,26 +12,19 @@ export async function createUser(request: FastifyRequest, reply: FastifyReply) {
     username: z.string(),
     password: z.string(),
     role: z.nativeEnum(PersonRole),
-    person: z
-      .object({
-        cpf: z.string(),
-        name: z.string(),
-        birth: z.coerce.date(),
-        email: z.string().email(),
-      })
-      .optional(),
+    name: z.string(),
+    email: z.string().email(),
+    cpf: z.string().optional(),
+    birth: z.coerce.date().optional(),
   })
 
-  const { username, password, role, person } = createUserBodySchema.parse(
-    request.body,
-  )
+  const { username, password, role, name, email, cpf, birth } =
+    createUserBodySchema.parse(request.body)
   const passwordHash = await hash(password, 8)
   const createUserUseCase = makeCreateUserUseCase()
   const user = await createUserUseCase.handler(
     new User(username, passwordHash, role),
-    person
-      ? new Person(person.cpf, person.name, person.birth, person.email, role)
-      : undefined,
+    new Person(cpf, name, birth, email, role),
   )
 
   return reply.status(201).send({

@@ -7,14 +7,14 @@ export class Person implements IPerson {
   @PrimaryGeneratedColumn()
   id?: number
 
-  @Column({ type: 'varchar' })
-  cpf!: string
+  @Column({ type: 'varchar', nullable: true })
+  cpf?: string | null
 
   @Column({ type: 'varchar' })
   name!: string
 
-  @Column({ type: 'date' })
-  birth!: Date
+  @Column({ type: 'date', nullable: true })
+  birth?: Date | null
 
   @Column({ type: 'varchar' })
   email!: string

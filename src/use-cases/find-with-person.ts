@@ -6,13 +6,27 @@ import { ResourceNotFoundError } from '@/use-cases/errors/resource-not-found-err
 export class FindWithPersonUseCase {
   constructor(private userRepository: IUserRepository) {}
 
-  async handler(userId: number): Promise<IUser & IPerson> {
-    const user = await this.userRepository.findWithPerson(userId)
+  async handler(userId: number): Promise<IUser & IPerson>
+  async handler(name: string): Promise<Array<IUser & IPerson>>
+  async handler(
+    identifier: number | string,
+  ): Promise<(IUser & IPerson) | Array<IUser & IPerson>> {
+    if (typeof identifier === 'number') {
+      const user = await this.userRepository.findWithPerson(identifier)
 
-    if (!user) {
+      if (!user) {
+        throw new ResourceNotFoundError()
+      }
+
+      return user
+    }
+
+    const users = await this.userRepository.findWithPersonByName(identifier)
+
+    if (users.length === 0) {
       throw new ResourceNotFoundError()
     }
 
-    return user
+    return users
   }
 }

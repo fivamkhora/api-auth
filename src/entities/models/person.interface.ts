@@ -5,9 +5,9 @@ export enum PersonRole {
 
 export interface IPerson {
   id?: number
-  cpf: string
+  cpf?: string | null
   name: string
-  birth: Date
+  birth?: Date | null
   email: string
   role: PersonRole
   user_id?: number

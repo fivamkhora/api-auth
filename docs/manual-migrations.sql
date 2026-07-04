@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS "user" (
 
 CREATE TABLE IF NOT EXISTS person (
   id SERIAL PRIMARY KEY,
-  cpf VARCHAR(20) NOT NULL,
+  cpf VARCHAR(20),
   name VARCHAR(255) NOT NULL,
-  birth DATE NOT NULL,
+  birth DATE,
   email VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL,
   user_id INTEGER
@@ -38,6 +38,12 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'Aluno';
 
 ALTER TABLE person
 ADD COLUMN IF NOT EXISTS user_id INTEGER;
+
+ALTER TABLE person
+ALTER COLUMN cpf DROP NOT NULL;
+
+ALTER TABLE person
+ALTER COLUMN birth DROP NOT NULL;
 
 -- Remove defaults after backfilling older rows.
 ALTER TABLE "user"

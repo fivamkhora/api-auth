@@ -35,6 +35,27 @@ export class UserRepository implements IUserRepository {
     return user ?? undefined
   }
 
+  async findWithPersonByName(name: string): Promise<Array<IUser & IPerson>> {
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoin('person', 'person', 'person.user_id = user.id')
+      .select([
+        'user.id AS id',
+        'user.username AS username',
+        'user.password AS password',
+        'COALESCE(person.role, user.role) AS role',
+        'person.cpf AS cpf',
+        'person.name AS name',
+        'person.birth AS birth',
+        'person.email AS email',
+        'person.user_id AS user_id',
+      ])
+      .where('LOWER(person.name) LIKE LOWER(:name)', { name: `%${name}%` })
+      .getRawMany<IUser & IPerson>()
+
+    return users
+  }
+
   async findByUserName(
     username: string,
   ): Promise<(IUser & Partial<IPerson>) | undefined> {

@@ -65,12 +65,8 @@ describe('API Auth', () => {
         username: 'maria',
         password: '123456',
         role: PersonRole.ALUNO,
-        person: {
-          cpf: '00000000000',
-          name: 'Maria',
-          birth: '2000-01-01',
-          email: 'maria@example.com',
-        },
+        name: 'Maria',
+        email: 'maria@example.com',
       },
     })
     const body = response.json()
@@ -80,12 +76,28 @@ describe('API Auth', () => {
       id: 1,
       username: 'maria',
       role: PersonRole.ALUNO,
-      cpf: '00000000000',
       name: 'Maria',
-      birth: '2000-01-01T00:00:00.000Z',
       email: 'maria@example.com',
       user_id: 1,
     })
+  })
+
+  it('requires name and email to create a user', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/user',
+      payload: {
+        username: 'maria',
+        password: '123456',
+        role: PersonRole.ALUNO,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 400)
+    assert.equal(body.message, 'Validation error')
+    assert.ok(body.issues.name)
+    assert.ok(body.issues.email)
   })
 
   it('signs in with valid credentials', async () => {
@@ -112,12 +124,10 @@ describe('API Auth', () => {
     const body = response.json()
 
     assert.equal(response.statusCode, 200)
+    assert.deepEqual(Object.keys(body).sort(), ['role', 'token'])
     assert.equal(body.role, PersonRole.ALUNO)
     assert.equal(typeof body.token, 'string')
     assert.ok(body.token.length > 0)
-    assert.equal(body.user.id, 1)
-    assert.equal(body.user.username, 'maria')
-    assert.equal(body.user.email, 'maria@example.com')
   })
 
   it('rejects invalid credentials', async () => {
@@ -187,6 +197,61 @@ describe('API Auth', () => {
     assert.equal(body.role, PersonRole.ALUNO)
     assert.equal(body.email, 'maria@example.com')
     assert.equal(body.password, undefined)
+  })
+
+  it('finds authenticated users by partial name without exposing passwords', async () => {
+    let receivedIdentifier
+    mocks.findWithPerson.handler = async (identifier) => {
+      receivedIdentifier = identifier
+
+      return [
+        {
+          id: 1,
+          username: 'maria',
+          password: 'hashed-password',
+          role: PersonRole.ALUNO,
+          cpf: '00000000000',
+          name: 'Maria Silva',
+          birth: new Date('2000-01-01'),
+          email: 'maria@example.com',
+          user_id: 1,
+        },
+        {
+          id: 2,
+          username: 'mario',
+          password: 'hashed-password',
+          role: PersonRole.ALUNO,
+          cpf: '11111111111',
+          name: 'Mario Souza',
+          birth: new Date('2001-01-01'),
+          email: 'mario@example.com',
+          user_id: 2,
+        },
+      ]
+    }
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user/Mari',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(receivedIdentifier, 'Mari')
+    assert.equal(body.length, 2)
+    assert.equal(body[0].username, 'maria')
+    assert.equal(body[0].name, 'Maria Silva')
+    assert.equal(body[0].password, undefined)
+    assert.equal(body[1].username, 'mario')
+    assert.equal(body[1].name, 'Mario Souza')
+    assert.equal(body[1].password, undefined)
   })
 
   it('returns 404 when an authenticated user does not exist', async () => {
