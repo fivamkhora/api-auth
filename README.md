@@ -27,7 +27,7 @@ O sistema expoe uma API HTTP para:
 - autenticar usuarios com `username` e `password`;
 - gerar token JWT;
 - proteger rotas privadas com Bearer Token;
-- consultar dados de usuario autenticado por ID.
+- consultar dados de usuario autenticado por ID ou por nome parcial.
 
 As rotas publicas sao:
 
@@ -36,7 +36,7 @@ As rotas publicas sao:
 
 A rota privada atual e:
 
-- `GET /user/:id`
+- `GET /user/:identifier`
 
 ## Tecnologias
 
@@ -152,7 +152,9 @@ Tabelas principais:
 | `birth` | date | Data de nascimento. |
 | `email` | varchar | E-mail. |
 | `role` | varchar | Deve ser `Aluno` ou `Professor`. |
-| `user_id` | integer | Referencia opcional para `user.id`. |
+| `user_id` | integer | Referencia opcional e unica para `user.id`. |
+
+No DER atual, `name` e `email` sao obrigatorios no cadastro da API. `cpf` e `birth` sao opcionais.
 
 As migrations ficam em:
 
@@ -185,12 +187,12 @@ erDiagram
 
   PERSON {
     int id PK "serial"
-    varchar cpf "obrigatorio"
+    varchar cpf "opcional"
     varchar name "obrigatorio"
-    date birth "obrigatorio"
+    date birth "opcional"
     varchar email "obrigatorio"
     varchar role "Aluno | Professor"
-    int user_id FK "opcional"
+    int user_id FK "opcional, unico"
   }
 
   USER ||--o| PERSON : "possui perfil"
@@ -203,9 +205,11 @@ erDiagram
 - `user.password` armazena o hash da senha, nao a senha em texto puro.
 - `user.role` aceita apenas `Aluno` ou `Professor`.
 - `person.id` e a chave primaria da tabela `person`.
-- `person.user_id` referencia `user.id` e pode ser nulo.
-- A consulta `GET /user/:id` faz `LEFT JOIN` entre `"user"` e `person`, usando `person.user_id = user.id`.
+- `person.user_id` referencia `user.id`, pode ser nulo e e unico quando preenchido.
+- A consulta `GET /user/:identifier` faz `LEFT JOIN` entre `"user"` e `person`, usando `person.user_id = user.id`.
 - Quando existe registro em `person`, a API prioriza `person.role`; caso contrario, usa `user.role`.
+- Quando `identifier` e numerico, a busca e por `user.id`.
+- Quando `identifier` e texto, a busca e por nome parcial em `person.name`.
 
 ### Relacionamento
 
@@ -240,9 +244,9 @@ As roles aceitas sao:
 
 | Metodo | Rota | Autenticacao | Descricao |
 | --- | --- | --- | --- |
-| `POST` | `/user` | Publica | Cria um usuario. |
+| `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
-| `GET` | `/user/:id` | Bearer Token | Busca usuario por ID. |
+| `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
 
 ## Contratos da API
 
@@ -260,12 +264,10 @@ Body:
   "username": "maria",
   "password": "123456",
   "role": "Aluno",
-  "person": {
-    "cpf": "00000000000",
-    "name": "Maria",
-    "birth": "2000-01-01",
-    "email": "maria@example.com"
-  }
+  "name": "Maria",
+  "email": "maria@example.com",
+  "cpf": "00000000000",
+  "birth": "2000-01-01"
 }
 ```
 
@@ -284,14 +286,27 @@ Resposta `201`:
 }
 ```
 
-O objeto `person` e opcional. Quando informado, a API cria o registro em `person` e vincula com `person.user_id = user.id`.
+O cadastro cria um registro em `"user"` e um registro em `person`, vinculando `person.user_id = user.id`.
+
+Campos obrigatorios:
+
+- `username`
+- `password`
+- `role`
+- `name`
+- `email`
+
+Campos opcionais:
+
+- `cpf`
+- `birth`
 
 Exemplo com `curl`:
 
 ```bash
 curl -X POST http://localhost:3000/user \
   -H "Content-Type: application/json" \
-  -d '{"username":"maria","password":"123456","role":"Aluno","person":{"cpf":"00000000000","name":"Maria","birth":"2000-01-01","email":"maria@example.com"}}'
+  -d '{"username":"maria","password":"123456","role":"Aluno","name":"Maria","email":"maria@example.com","cpf":"00000000000","birth":"2000-01-01"}'
 ```
 
 ### Login
@@ -315,20 +330,11 @@ Resposta `200`:
 ```json
 {
   "token": "<jwt>",
-  "role": "Aluno",
-  "user": {
-    "id": 1,
-    "username": "maria",
-    "cpf": "00000000000",
-    "name": "Maria",
-    "birth": "2000-01-01T00:00:00.000Z",
-    "email": "maria@example.com",
-    "user_id": 1
-  }
+  "role": "Aluno"
 }
 ```
 
-O campo `role` retornado usa `person.role` quando houver pessoa vinculada; caso contrario usa `user.role`.
+O campo `role` retornado usa `person.role` quando houver pessoa vinculada; caso contrario usa `user.role`. O token JWT tambem carrega `username` e `role`, com `sub` apontando para o ID do usuario.
 
 Exemplo com `curl`:
 
@@ -341,9 +347,11 @@ curl -X POST http://localhost:3000/user/signin \
 ### Buscar Usuario por ID
 
 ```http
-GET /user/:id
+GET /user/:identifier
 Authorization: Bearer <token>
 ```
+
+Quando `identifier` e numerico, a API busca por `user.id`.
 
 Resposta `200`:
 
@@ -364,6 +372,39 @@ Exemplo com `curl`:
 
 ```bash
 curl http://localhost:3000/user/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+### Buscar Usuarios por Nome
+
+```http
+GET /user/:identifier
+Authorization: Bearer <token>
+```
+
+Quando `identifier` e texto, a API busca por nome parcial em `person.name`.
+
+Resposta `200`:
+
+```json
+[
+  {
+    "id": 1,
+    "username": "maria",
+    "role": "Aluno",
+    "cpf": "00000000000",
+    "name": "Maria Silva",
+    "birth": "2000-01-01",
+    "email": "maria@example.com",
+    "user_id": 1
+  }
+]
+```
+
+Exemplo com `curl`:
+
+```bash
+curl http://localhost:3000/user/Mari \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -443,6 +484,7 @@ Os testes validam:
 - rejeicao de credenciais invalidas;
 - protecao de rota privada;
 - busca autenticada de usuario;
+- busca autenticada de usuarios por nome parcial;
 - resposta `404` para usuario inexistente.
 
 ## Docker
