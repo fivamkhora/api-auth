@@ -27,6 +27,7 @@ O sistema expoe uma API HTTP para:
 - autenticar usuarios com `username` e `password`;
 - gerar token JWT;
 - proteger rotas privadas com Bearer Token;
+- retornar os dados do usuario autenticado pelo token JWT;
 - consultar dados de usuario autenticado por ID ou por nome parcial.
 
 As rotas publicas sao:
@@ -36,6 +37,7 @@ As rotas publicas sao:
 
 A rota privada atual e:
 
+- `GET /user/whoami`
 - `GET /user/:identifier`
 
 ## Tecnologias
@@ -246,6 +248,7 @@ As roles aceitas sao:
 | --- | --- | --- | --- |
 | `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
+| `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
 
 ## Contratos da API
@@ -342,6 +345,34 @@ Exemplo com `curl`:
 curl -X POST http://localhost:3000/user/signin \
   -H "Content-Type: application/json" \
   -d '{"username":"maria","password":"123456"}'
+```
+
+### Usuario Autenticado
+
+```http
+GET /user/whoami
+Authorization: Bearer <token>
+```
+
+A rota usa o `sub` do JWT para buscar o usuario autenticado.
+
+Resposta `200`:
+
+```json
+{
+  "id": 1,
+  "username": "maria",
+  "name": "Maria",
+  "email": "maria@example.com",
+  "role": "Aluno"
+}
+```
+
+Exemplo com `curl`:
+
+```bash
+curl http://localhost:3000/user/whoami \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### Buscar Usuario por ID
@@ -483,6 +514,7 @@ Os testes validam:
 - login;
 - rejeicao de credenciais invalidas;
 - protecao de rota privada;
+- retorno do usuario autenticado com `/user/whoami`;
 - busca autenticada de usuario;
 - busca autenticada de usuarios por nome parcial;
 - resposta `404` para usuario inexistente.

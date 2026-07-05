@@ -199,6 +199,48 @@ describe('API Auth', () => {
     assert.equal(body.password, undefined)
   })
 
+  it('returns the authenticated user profile', async () => {
+    let receivedIdentifier
+    mocks.findWithPerson.handler = async (identifier) => {
+      receivedIdentifier = identifier
+
+      return {
+        id: 1,
+        username: 'maria',
+        password: 'hashed-password',
+        role: PersonRole.ALUNO,
+        cpf: '00000000000',
+        name: 'Maria',
+        birth: new Date('2000-01-01'),
+        email: 'maria@example.com',
+        user_id: 1,
+      }
+    }
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user/whoami',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(receivedIdentifier, 1)
+    assert.deepEqual(body, {
+      id: 1,
+      username: 'maria',
+      name: 'Maria',
+      email: 'maria@example.com',
+      role: PersonRole.ALUNO,
+    })
+  })
+
   it('finds authenticated users by partial name without exposing passwords', async () => {
     let receivedIdentifier
     mocks.findWithPerson.handler = async (identifier) => {
