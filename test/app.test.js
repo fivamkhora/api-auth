@@ -16,6 +16,7 @@ const mocks = {
   createUser: { handler: async () => undefined },
   signIn: { handler: async () => undefined },
   findWithPerson: { handler: async () => undefined },
+  findManyWithPerson: { handler: async () => undefined },
 }
 
 globalThis.__apiAuthTestUseCases = mocks
@@ -38,6 +39,7 @@ describe('API Auth', () => {
     mocks.createUser.handler = async () => undefined
     mocks.signIn.handler = async () => undefined
     mocks.findWithPerson.handler = async () => undefined
+    mocks.findManyWithPerson.handler = async () => undefined
   })
 
   after(async () => {
@@ -239,6 +241,129 @@ describe('API Auth', () => {
       email: 'maria@example.com',
       role: PersonRole.ALUNO,
     })
+  })
+
+  it('finds many authenticated users by ids without exposing passwords', async () => {
+    let receivedIds
+    mocks.findManyWithPerson.handler = async (ids) => {
+      receivedIds = ids
+
+      return [
+        {
+          id: 10,
+          username: 'joao.professor',
+          password: 'hashed-password',
+          role: PersonRole.PROFESSOR,
+          name: 'Joao Professor Exemplo',
+          email: 'joao.professor@example.com',
+          user_id: 10,
+        },
+        {
+          id: 25,
+          username: 'jose.aluno',
+          password: 'hashed-password',
+          role: PersonRole.ALUNO,
+          name: 'Jose Aluno Exemplo',
+          email: 'jose.aluno@example.com',
+          user_id: 25,
+        },
+      ]
+    }
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users?ids=10,25,10,30',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.deepEqual(receivedIds, [10, 25, 30])
+    assert.equal(body.length, 2)
+    assert.equal(body[0].id, 10)
+    assert.equal(body[0].name, 'Joao Professor Exemplo')
+    assert.equal(body[0].password, undefined)
+    assert.equal(body[1].id, 25)
+    assert.equal(body[1].name, 'Jose Aluno Exemplo')
+    assert.equal(body[1].password, undefined)
+  })
+
+  it('requires ids to find many users', async () => {
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 400)
+    assert.equal(body.message, 'Validation error')
+    assert.ok(body.issues.ids)
+  })
+
+  it('protects the batch user lookup route', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users?ids=10,25',
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 401)
+    assert.deepEqual(body, { message: 'Unauthorized' })
+  })
+
+  it('rejects invalid ids when finding many users', async () => {
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users?ids=10,abc,0',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 400)
+    assert.equal(body.message, 'Validation error')
+    assert.ok(body.issues.ids)
+  })
+
+  it('limits the amount of ids when finding many users', async () => {
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+    const ids = Array.from({ length: 101 }, (_, index) => index + 1).join(',')
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/users?ids=${ids}`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 400)
+    assert.equal(body.message, 'Validation error')
+    assert.ok(body.issues.ids)
   })
 
   it('finds authenticated users by partial name without exposing passwords', async () => {

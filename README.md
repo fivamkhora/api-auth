@@ -29,6 +29,7 @@ O sistema expoe uma API HTTP para:
 - proteger rotas privadas com Bearer Token;
 - retornar os dados do usuario autenticado pelo token JWT;
 - consultar dados de usuario autenticado por ID ou por nome parcial.
+- consultar multiplos usuarios por lista de IDs em uma unica chamada.
 
 As rotas publicas sao:
 
@@ -39,6 +40,7 @@ A rota privada atual e:
 
 - `GET /user/whoami`
 - `GET /user/:identifier`
+- `GET /users?ids=10,25,30`
 
 ## Tecnologias
 
@@ -250,6 +252,7 @@ As roles aceitas sao:
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
 | `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
+| `GET` | `/users?ids=...` | Bearer Token | Busca multiplos usuarios por IDs. |
 
 ## Contratos da API
 
@@ -439,6 +442,65 @@ curl http://localhost:3000/user/Mari \
   -H "Authorization: Bearer <token>"
 ```
 
+### Buscar Multiplos Usuarios por IDs
+
+```http
+GET /users?ids=10,25,30,31
+Authorization: Bearer <token>
+Accept: application/json
+```
+
+A rota recebe `ids` como string com IDs separados por virgula. Ela remove IDs duplicados, limita a 100 IDs por requisicao e retorna apenas usuarios encontrados.
+
+Resposta `200`:
+
+```json
+[
+  {
+    "id": 10,
+    "username": "joao.professor",
+    "role": "Professor",
+    "cpf": "11111111111",
+    "name": "Joao Professor Exemplo",
+    "birth": "1980-01-01",
+    "email": "joao.professor@example.com",
+    "user_id": 10
+  },
+  {
+    "id": 25,
+    "username": "jose.aluno",
+    "role": "Aluno",
+    "cpf": "22222222222",
+    "name": "Jose Aluno Exemplo",
+    "birth": "2005-01-01",
+    "email": "jose.aluno@example.com",
+    "user_id": 25
+  }
+]
+```
+
+Se nenhum usuario for encontrado, a resposta e `200` com array vazio:
+
+```json
+[]
+```
+
+Exemplo com `curl`:
+
+```bash
+curl -X GET "http://localhost:3000/users?ids=10,25,30,31" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+Validacoes:
+
+- `ids` e obrigatorio.
+- Cada ID deve ser numerico e maior que zero.
+- IDs duplicados sao removidos antes da busca.
+- O limite maximo e 100 IDs por requisicao.
+- Senha e outros campos sensiveis nao sao retornados.
+
 ## Respostas de Erro
 
 ### Token ausente ou invalido
@@ -517,6 +579,7 @@ Os testes validam:
 - retorno do usuario autenticado com `/user/whoami`;
 - busca autenticada de usuario;
 - busca autenticada de usuarios por nome parcial;
+- busca autenticada de multiplos usuarios por IDs;
 - resposta `404` para usuario inexistente.
 
 ## Docker

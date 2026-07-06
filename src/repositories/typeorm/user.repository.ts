@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 
 import { IPerson } from '@/entities/models/person.interface'
 import { IUser } from '@/entities/models/user.interface'
@@ -9,9 +9,11 @@ import { IUserRepository } from '@/repositories/user.repository.interface'
 
 export class UserRepository implements IUserRepository {
   private userRepository: Repository<User>
+  private personRepository: Repository<Person>
 
   constructor() {
     this.userRepository = appDataSource.getRepository(User)
+    this.personRepository = appDataSource.getRepository(Person)
   }
 
   async findWithPerson(user_id: number): Promise<(IUser & IPerson) | undefined> {
@@ -54,6 +56,53 @@ export class UserRepository implements IUserRepository {
       .getRawMany<IUser & IPerson>()
 
     return users
+  }
+
+  async findManyWithPerson(
+    ids: number[],
+  ): Promise<Array<IUser & Partial<IPerson>>> {
+    if (ids.length === 0) {
+      return []
+    }
+
+    const users = await this.userRepository.find({
+      where: {
+        id: In(ids),
+      },
+    })
+    const persons = await this.personRepository.find({
+      where: {
+        user_id: In(ids),
+      },
+    })
+    const usersById = new Map(users.map((user) => [user.id, user]))
+    const personsByUserId = new Map(
+      persons
+        .filter((person) => person.user_id !== undefined)
+        .map((person) => [person.user_id, person]),
+    )
+
+    return ids.flatMap((id) => {
+      const user = usersById.get(id)
+
+      if (!user) {
+        return []
+      }
+
+      const person = personsByUserId.get(id)
+
+      return [
+        {
+          ...user,
+          cpf: person?.cpf,
+          name: person?.name,
+          birth: person?.birth,
+          email: person?.email,
+          role: person?.role ?? user.role,
+          user_id: person?.user_id,
+        },
+      ]
+    })
   }
 
   async findByUserName(

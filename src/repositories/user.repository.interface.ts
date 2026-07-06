@@ -4,6 +4,7 @@ import { IUser } from '@/entities/models/user.interface'
 export interface IUserRepository {
   findWithPerson(user_id: number): Promise<(IUser & IPerson) | undefined>
   findWithPersonByName(name: string): Promise<Array<IUser & IPerson>>
+  findManyWithPerson(ids: number[]): Promise<Array<IUser & Partial<IPerson>>>
   findByUserName(username: string): Promise<(IUser & Partial<IPerson>) | undefined>
   create(
     user: IUser,
