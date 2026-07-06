@@ -15,6 +15,7 @@ process.env.JWT_SECRET = process.env.SECRET ?? process.env.JWT_SECRET ?? 'segred
 const mocks = {
   createUser: { handler: async () => undefined },
   signIn: { handler: async () => undefined },
+  findAllWithPerson: { handler: async () => undefined },
   findWithPerson: { handler: async () => undefined },
   findManyWithPerson: { handler: async () => undefined },
 }
@@ -38,6 +39,7 @@ describe('API Auth', () => {
   beforeEach(() => {
     mocks.createUser.handler = async () => undefined
     mocks.signIn.handler = async () => undefined
+    mocks.findAllWithPerson.handler = async () => undefined
     mocks.findWithPerson.handler = async () => undefined
     mocks.findManyWithPerson.handler = async () => undefined
   })
@@ -160,6 +162,64 @@ describe('API Auth', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/user/1',
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 401)
+    assert.deepEqual(body, { message: 'Unauthorized' })
+  })
+
+  it('lists authenticated users without exposing passwords', async () => {
+    mocks.findAllWithPerson.handler = async () => [
+      {
+        id: 1,
+        username: 'maria',
+        password: 'hashed-password',
+        role: PersonRole.ALUNO,
+        cpf: '00000000000',
+        name: 'Maria',
+        birth: new Date('2000-01-01'),
+        email: 'maria@example.com',
+        user_id: 1,
+      },
+      {
+        id: 2,
+        username: 'joao',
+        password: 'hashed-password',
+        role: PersonRole.PROFESSOR,
+        cpf: '11111111111',
+        name: 'Joao',
+        birth: new Date('1980-01-01'),
+        email: 'joao@example.com',
+        user_id: 2,
+      },
+    ]
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(body.length, 2)
+    assert.equal(body[0].username, 'maria')
+    assert.equal(body[0].password, undefined)
+    assert.equal(body[1].username, 'joao')
+    assert.equal(body[1].password, undefined)
+  })
+
+  it('protects the user list route', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user',
     })
     const body = response.json()
 

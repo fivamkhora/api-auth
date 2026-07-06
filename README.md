@@ -39,6 +39,7 @@ As rotas publicas sao:
 A rota privada atual e:
 
 - `GET /user/whoami`
+- `GET /user`
 - `GET /user/:identifier`
 - `GET /users?ids=10,25,30`
 
@@ -250,6 +251,7 @@ As roles aceitas sao:
 | --- | --- | --- | --- |
 | `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
+| `GET` | `/user` | Bearer Token | Lista todos os usuarios registrados. |
 | `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
 | `GET` | `/users?ids=...` | Bearer Token | Busca multiplos usuarios por IDs. |
@@ -375,6 +377,39 @@ Exemplo com `curl`:
 
 ```bash
 curl http://localhost:3000/user/whoami \
+  -H "Authorization: Bearer <token>"
+```
+
+### Listar Usuarios
+
+```http
+GET /user
+Authorization: Bearer <token>
+```
+
+Retorna todos os usuarios registrados/criados, sem senha ou campos sensiveis.
+
+Resposta `200`:
+
+```json
+[
+  {
+    "id": 1,
+    "username": "maria",
+    "role": "Aluno",
+    "cpf": "00000000000",
+    "name": "Maria",
+    "birth": "2000-01-01",
+    "email": "maria@example.com",
+    "user_id": 1
+  }
+]
+```
+
+Exemplo com `curl`:
+
+```bash
+curl http://localhost:3000/user \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -577,6 +612,7 @@ Os testes validam:
 - rejeicao de credenciais invalidas;
 - protecao de rota privada;
 - retorno do usuario autenticado com `/user/whoami`;
+- listagem autenticada de todos os usuarios;
 - busca autenticada de usuario;
 - busca autenticada de usuarios por nome parcial;
 - busca autenticada de multiplos usuarios por IDs;

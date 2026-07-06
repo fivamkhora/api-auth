@@ -2,6 +2,7 @@ import { IPerson } from '@/entities/models/person.interface'
 import { IUser } from '@/entities/models/user.interface'
 
 export interface IUserRepository {
+  findAllWithPerson(): Promise<Array<IUser & Partial<IPerson>>>
   findWithPerson(user_id: number): Promise<(IUser & IPerson) | undefined>
   findWithPersonByName(name: string): Promise<Array<IUser & IPerson>>
   findManyWithPerson(ids: number[]): Promise<Array<IUser & Partial<IPerson>>>

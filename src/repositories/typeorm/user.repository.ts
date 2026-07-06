@@ -16,6 +16,27 @@ export class UserRepository implements IUserRepository {
     this.personRepository = appDataSource.getRepository(Person)
   }
 
+  async findAllWithPerson(): Promise<Array<IUser & Partial<IPerson>>> {
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoin('person', 'person', 'person.user_id = user.id')
+      .select([
+        'user.id AS id',
+        'user.username AS username',
+        'user.password AS password',
+        'COALESCE(person.role, user.role) AS role',
+        'person.cpf AS cpf',
+        'person.name AS name',
+        'person.birth AS birth',
+        'person.email AS email',
+        'person.user_id AS user_id',
+      ])
+      .orderBy('user.id', 'ASC')
+      .getRawMany<IUser & Partial<IPerson>>()
+
+    return users
+  }
+
   async findWithPerson(user_id: number): Promise<(IUser & IPerson) | undefined> {
     const user = await this.userRepository
       .createQueryBuilder('user')
