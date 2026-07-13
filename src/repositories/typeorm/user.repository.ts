@@ -1,6 +1,6 @@
 import { In, Repository } from 'typeorm'
 
-import { IPerson } from '@/entities/models/person.interface'
+import { IPerson, PersonRole } from '@/entities/models/person.interface'
 import { IUser } from '@/entities/models/user.interface'
 import { Person } from '@/entities/person.entity'
 import { User } from '@/entities/user.entity'
@@ -16,8 +16,10 @@ export class UserRepository implements IUserRepository {
     this.personRepository = appDataSource.getRepository(Person)
   }
 
-  async findAllWithPerson(): Promise<Array<IUser & Partial<IPerson>>> {
-    const users = await this.userRepository
+  async findAllWithPerson(
+    role?: PersonRole,
+  ): Promise<Array<IUser & Partial<IPerson>>> {
+    const query = this.userRepository
       .createQueryBuilder('user')
       .leftJoin('person', 'person', 'person.user_id = user.id')
       .select([
@@ -31,6 +33,12 @@ export class UserRepository implements IUserRepository {
         'person.email AS email',
         'person.user_id AS user_id',
       ])
+
+    if (role) {
+      query.where('COALESCE(person.role, user.role) = :role', { role })
+    }
+
+    const users = await query
       .orderBy('user.id', 'ASC')
       .getRawMany<IUser & Partial<IPerson>>()
 

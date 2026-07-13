@@ -39,7 +39,7 @@ As rotas publicas sao:
 A rota privada atual e:
 
 - `GET /user/whoami`
-- `GET /user`
+- `GET /user?role=Aluno|Professor`
 - `GET /user/:identifier`
 - `GET /users?ids=10,25,30`
 
@@ -251,7 +251,7 @@ As roles aceitas sao:
 | --- | --- | --- | --- |
 | `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
-| `GET` | `/user` | Bearer Token | Lista todos os usuarios registrados. |
+| `GET` | `/user?role=Aluno|Professor` | Bearer Token | Lista usuarios, com filtro opcional por role. |
 | `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
 | `GET` | `/users?ids=...` | Bearer Token | Busca multiplos usuarios por IDs. |
@@ -388,6 +388,7 @@ Authorization: Bearer <token>
 ```
 
 Retorna todos os usuarios registrados/criados, sem senha ou campos sensiveis.
+O parametro opcional `role` filtra os usuarios por `Aluno` ou `Professor`.
 
 Resposta `200`:
 
@@ -412,6 +413,15 @@ Exemplo com `curl`:
 curl http://localhost:3000/user \
   -H "Authorization: Bearer <token>"
 ```
+
+Exemplo filtrando professores:
+
+```bash
+curl "http://localhost:3000/user?role=Professor" \
+  -H "Authorization: Bearer <token>"
+```
+
+Uma `role` diferente de `Aluno` ou `Professor` retorna HTTP `400`.
 
 ### Buscar Usuario por ID
 
@@ -613,6 +623,7 @@ Os testes validam:
 - protecao de rota privada;
 - retorno do usuario autenticado com `/user/whoami`;
 - listagem autenticada de todos os usuarios;
+- filtro e validacao da listagem de usuarios por role;
 - busca autenticada de usuario;
 - busca autenticada de usuarios por nome parcial;
 - busca autenticada de multiplos usuarios por IDs;

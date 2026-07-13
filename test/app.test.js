@@ -216,6 +216,61 @@ describe('API Auth', () => {
     assert.equal(body[1].password, undefined)
   })
 
+  it('lists authenticated users filtered by role', async () => {
+    let receivedRole
+    mocks.findAllWithPerson.handler = async (role) => {
+      receivedRole = role
+
+      return [
+        {
+          id: 2,
+          username: 'joao',
+          password: 'hashed-password',
+          role: PersonRole.PROFESSOR,
+          name: 'Joao',
+          email: 'joao@example.com',
+          user_id: 2,
+        },
+      ]
+    }
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user?role=Professor',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(receivedRole, PersonRole.PROFESSOR)
+    assert.equal(body.length, 1)
+    assert.equal(body[0].role, PersonRole.PROFESSOR)
+    assert.equal(body[0].password, undefined)
+  })
+
+  it('rejects an invalid role when listing users', async () => {
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user?role=Administrador',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+
+    assert.equal(response.statusCode, 400)
+  })
+
   it('protects the user list route', async () => {
     const response = await app.inject({
       method: 'GET',
