@@ -19,7 +19,7 @@ export class CreateUserAndPersonTables1718580000000 implements MigrationInterfac
         name VARCHAR(255) NOT NULL,
         birth DATE NOT NULL,
         email VARCHAR(255) NOT NULL,
-        role VARCHAR(20) NOT NULL CHECK (role IN ('Professor', 'Aluno')),
+        role VARCHAR(20) NOT NULL CHECK (role IN ('Professor', 'Aluno', 'Administrador')),
         user_id INTEGER REFERENCES "user"(id)
       )
     `)

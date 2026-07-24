@@ -19,7 +19,7 @@ export class AddRoleToPersonTable1718666400000 implements MigrationInterface {
             AND conrelid = 'person'::regclass
         ) THEN
           ALTER TABLE person
-          ADD CONSTRAINT person_role_check CHECK (role IN ('Professor', 'Aluno'));
+          ADD CONSTRAINT person_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
         END IF;
       END $$;
     `)

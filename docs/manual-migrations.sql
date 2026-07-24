@@ -8,7 +8,7 @@
 -- - "user".username is unique and used for sign-in.
 -- - "user".password stores a bcrypt hash.
 -- - person.user_id is optional, but unique when present.
--- - role accepts only 'Professor' or 'Aluno'.
+-- - role accepts only 'Professor', 'Aluno' or 'Administrador'.
 
 BEGIN;
 
@@ -75,7 +75,7 @@ BEGIN
       AND conrelid = '"user"'::regclass
   ) THEN
     ALTER TABLE "user"
-    ADD CONSTRAINT user_role_check CHECK (role IN ('Professor', 'Aluno'));
+    ADD CONSTRAINT user_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
   END IF;
 END $$;
 
@@ -89,7 +89,7 @@ BEGIN
       AND conrelid = 'person'::regclass
   ) THEN
     ALTER TABLE person
-    ADD CONSTRAINT person_role_check CHECK (role IN ('Professor', 'Aluno'));
+    ADD CONSTRAINT person_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
   END IF;
 END $$;
 

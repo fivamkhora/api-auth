@@ -19,7 +19,7 @@ export class AddRoleToUserTable1718752800000 implements MigrationInterface {
             AND conrelid = '"user"'::regclass
         ) THEN
           ALTER TABLE "user"
-          ADD CONSTRAINT user_role_check CHECK (role IN ('Professor', 'Aluno'));
+          ADD CONSTRAINT user_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
         END IF;
       END $$;
     `)

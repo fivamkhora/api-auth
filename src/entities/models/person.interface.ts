@@ -1,6 +1,7 @@
 export enum PersonRole {
   PROFESSOR = 'Professor',
   ALUNO = 'Aluno',
+  ADMIN = 'Administrador',
 }
 
 export interface IPerson {

@@ -254,7 +254,23 @@ describe('API Auth', () => {
     assert.equal(body[0].password, undefined)
   })
 
-  it('rejects an invalid role when listing users', async () => {
+  it('lists authenticated users filtered by admin role', async () => {
+    let receivedRole
+    mocks.findAllWithPerson.handler = async (role) => {
+      receivedRole = role
+
+      return [
+        {
+          id: 3,
+          username: 'admin',
+          password: 'hashed-password',
+          role: PersonRole.ADMIN,
+          name: 'Admin',
+          email: 'admin@example.com',
+          user_id: 3,
+        },
+      ]
+    }
     const token = app.jwt.sign(
       { username: 'maria', role: PersonRole.ALUNO },
       { sub: '1' },
@@ -263,6 +279,28 @@ describe('API Auth', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/user?role=Administrador',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+    const body = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(receivedRole, PersonRole.ADMIN)
+    assert.equal(body.length, 1)
+    assert.equal(body[0].role, PersonRole.ADMIN)
+    assert.equal(body[0].password, undefined)
+  })
+
+  it('rejects an invalid role when listing users', async () => {
+    const token = app.jwt.sign(
+      { username: 'maria', role: PersonRole.ALUNO },
+      { sub: '1' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user?role=Coordenador',
       headers: {
         authorization: `Bearer ${token}`,
       },
