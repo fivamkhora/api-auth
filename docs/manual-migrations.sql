@@ -1,22 +1,24 @@
 -- Manual migrations for api-auth.
 -- Execute this file in PostgreSQL using the same database configured in .env.
 --
--- Current DER:
---   "user" 1 ---- 0..1 person
+-- Final schema represented by the TypeORM migrations in
+-- src/lib/typeorm/migrations:
+--   "user" 1 ---- 0..N person
 --
 -- Notes:
 -- - "user".username is unique and used for sign-in.
 -- - "user".password stores a bcrypt hash.
--- - person.user_id is optional, but unique when present.
+-- - person.user_id is optional and is not unique in the TypeORM migrations.
 -- - role accepts only 'Professor', 'Aluno' or 'Administrador'.
 
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS "user" (
   id SERIAL PRIMARY KEY,
-  username VARCHAR(255) NOT NULL,
+  username VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL
+    CHECK (role IN ('Professor', 'Aluno', 'Administrador'))
 );
 
 CREATE TABLE IF NOT EXISTS person (
@@ -25,8 +27,9 @@ CREATE TABLE IF NOT EXISTS person (
   name VARCHAR(255) NOT NULL,
   birth DATE,
   email VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL,
-  user_id INTEGER
+  role VARCHAR(20) NOT NULL
+    CHECK (role IN ('Professor', 'Aluno', 'Administrador')),
+  user_id INTEGER REFERENCES "user"(id)
 );
 
 -- Compatibility with databases created from older migrations.
@@ -38,6 +41,33 @@ ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'Aluno';
 
 ALTER TABLE person
 ADD COLUMN IF NOT EXISTS user_id INTEGER;
+
+-- This constraint existed in an older version of this manual script, but it
+-- is not present in the TypeORM migrations.
+DO $$
+DECLARE
+  unique_constraint RECORD;
+BEGIN
+  FOR unique_constraint IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'person'::regclass
+      AND contype = 'u'
+      AND conkey = ARRAY[
+        (
+          SELECT attnum
+          FROM pg_attribute
+          WHERE attrelid = 'person'::regclass
+            AND attname = 'user_id'
+        )
+      ]::SMALLINT[]
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE person DROP CONSTRAINT %I',
+      unique_constraint.conname
+    );
+  END LOOP;
+END $$;
 
 ALTER TABLE person
 ALTER COLUMN cpf DROP NOT NULL;
@@ -52,71 +82,64 @@ ALTER COLUMN role DROP DEFAULT;
 ALTER TABLE person
 ALTER COLUMN role DROP DEFAULT;
 
--- Constraints for "user".
+-- Ensure the username rule from the initial migration also exists when this
+-- script is executed against an older database.
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
-    WHERE conname = 'user_username_unique'
-      AND conrelid = '"user"'::regclass
+    WHERE conrelid = '"user"'::regclass
+      AND contype = 'u'
+      AND conkey = ARRAY[
+        (
+          SELECT attnum
+          FROM pg_attribute
+          WHERE attrelid = '"user"'::regclass
+            AND attname = 'username'
+        )
+      ]::SMALLINT[]
   ) THEN
     ALTER TABLE "user"
     ADD CONSTRAINT user_username_unique UNIQUE (username);
   END IF;
 END $$;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'user_role_check'
-      AND conrelid = '"user"'::regclass
-  ) THEN
-    ALTER TABLE "user"
-    ADD CONSTRAINT user_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
-  END IF;
-END $$;
+-- Final state of AddAdminRole1784851200000.
+ALTER TABLE "user"
+DROP CONSTRAINT IF EXISTS user_role_check;
 
--- Constraints for person.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'person_role_check'
-      AND conrelid = 'person'::regclass
-  ) THEN
-    ALTER TABLE person
-    ADD CONSTRAINT person_role_check CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
-  END IF;
-END $$;
+ALTER TABLE "user"
+ADD CONSTRAINT user_role_check
+CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
+
+ALTER TABLE person
+DROP CONSTRAINT IF EXISTS person_role_check;
+
+ALTER TABLE person
+ADD CONSTRAINT person_role_check
+CHECK (role IN ('Professor', 'Aluno', 'Administrador'));
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
-    WHERE conname = 'person_user_id_fk'
-      AND conrelid = 'person'::regclass
+    WHERE conrelid = 'person'::regclass
+      AND confrelid = '"user"'::regclass
+      AND contype = 'f'
+      AND conkey = ARRAY[
+        (
+          SELECT attnum
+          FROM pg_attribute
+          WHERE attrelid = 'person'::regclass
+            AND attname = 'user_id'
+        )
+      ]::SMALLINT[]
   ) THEN
     ALTER TABLE person
     ADD CONSTRAINT person_user_id_fk
     FOREIGN KEY (user_id) REFERENCES "user"(id);
-  END IF;
-END $$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'person_user_id_unique'
-      AND conrelid = 'person'::regclass
-  ) THEN
-    ALTER TABLE person
-    ADD CONSTRAINT person_user_id_unique UNIQUE (user_id);
   END IF;
 END $$;
 
@@ -137,13 +160,8 @@ ORDER BY table_name, ordinal_position;
 
 SELECT conname, conrelid::regclass AS table_name, pg_get_constraintdef(oid) AS definition
 FROM pg_constraint
-WHERE conname IN (
-  'user_username_unique',
-  'user_role_check',
-  'person_role_check',
-  'person_user_id_fk',
-  'person_user_id_unique'
-)
+WHERE conrelid IN ('"user"'::regclass, 'person'::regclass)
+  AND contype IN ('p', 'u', 'f', 'c')
 ORDER BY conrelid::regclass::text, conname;
 
 SELECT

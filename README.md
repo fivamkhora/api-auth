@@ -165,7 +165,7 @@ Tabelas principais:
 | `birth` | date | Data de nascimento. |
 | `email` | varchar | E-mail. |
 | `role` | varchar | Deve ser `Aluno`, `Professor` ou `Administrador`. |
-| `user_id` | integer | Referencia opcional e unica para `user.id`. |
+| `user_id` | integer | Referencia opcional para `user.id`; nao possui constraint `UNIQUE`. |
 
 No DER atual, `name` e `email` sao obrigatorios no cadastro da API. `cpf` e `birth` sao opcionais.
 
@@ -205,10 +205,10 @@ erDiagram
     date birth "opcional"
     varchar email "obrigatorio"
     varchar role "Aluno | Professor | Administrador"
-    int user_id FK "opcional, unico"
+    int user_id FK "opcional"
   }
 
-  USER ||--o| PERSON : "possui perfil"
+  USER ||--o{ PERSON : "possui perfis"
 ```
 
 ### Regras do Modelo
@@ -218,7 +218,7 @@ erDiagram
 - `user.password` armazena o hash da senha, nao a senha em texto puro.
 - `user.role` aceita apenas `Aluno`, `Professor` ou `Administrador`.
 - `person.id` e a chave primaria da tabela `person`.
-- `person.user_id` referencia `user.id`, pode ser nulo e e unico quando preenchido.
+- `person.user_id` referencia `user.id`, pode ser nulo e nao e unico nas migrations TypeORM.
 - A consulta `GET /user/:identifier` faz `LEFT JOIN` entre `"user"` e `person`, usando `person.user_id = user.id`.
 - Quando existe registro em `person`, a API prioriza `person.role`; caso contrario, usa `user.role`.
 - Quando `identifier` e numerico, a busca e por `user.id`.
@@ -226,12 +226,14 @@ erDiagram
 
 ### Relacionamento
 
-O relacionamento atual permite que um usuario tenha zero ou um registro complementar em `person`.
+O esquema criado pelas migrations permite que um usuario tenha zero ou varios
+registros complementares em `person`.
 
 Na pratica:
 
 - um usuario pode existir apenas na tabela `"user"`;
-- um usuario pode ter dados complementares em `person`;
+- o cadastro atual da API cria um registro em `person` para cada novo usuario;
+- o banco nao impede que mais de um registro `person` referencie o mesmo usuario;
 - `person.user_id` e opcional, entao tambem podem existir registros de pessoa ainda nao vinculados a um usuario.
 
 ## Autenticacao
