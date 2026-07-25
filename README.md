@@ -15,6 +15,7 @@ API de autenticacao e autorizacao de usuarios desenvolvida com Fastify, TypeScri
 - [Rotas da aplicacao](#rotas-da-aplicacao)
 - [Contratos da API](#contratos-da-api)
 - [Testes](#testes)
+- [Seguranca e CI](#seguranca-e-ci)
 - [Docker](#docker)
 - [Estrutura do projeto](#estrutura-do-projeto)
 
@@ -39,27 +40,30 @@ As rotas publicas sao:
 A rota privada atual e:
 
 - `GET /user/whoami`
-- `GET /user?role=Aluno|Professor`
+- `GET /user?role=Aluno|Professor|Administrador`
 - `GET /user/:identifier`
 - `GET /users?ids=10,25,30`
 
 ## Tecnologias
 
-- Node.js
+- Node.js 22
 - TypeScript
 - Fastify
 - TypeORM
-- PostgreSQL
+- PostgreSQL 18
 - JWT com `@fastify/jwt`
 - Zod
 - Bcrypt
 
 ## Requisitos
 
-- Node.js 22 ou superior
-- npm
+- Node.js 22.x
+- npm compativel com Node.js 22
 - Docker e Docker Compose, se for usar banco via container
-- PostgreSQL 16, se for rodar o banco localmente sem Docker
+- PostgreSQL 18, se for rodar o banco localmente sem Docker
+
+O CI e a imagem Docker usam Node.js 22. Use a mesma versao principal no
+ambiente local para reduzir diferencas entre desenvolvimento e producao.
 
 ## Configuracao
 
@@ -96,8 +100,12 @@ Variaveis obrigatorias:
 Instale as dependencias:
 
 ```bash
-npm install
+npm ci
 ```
+
+O projeto mantem o `package-lock.json` versionado. Use `npm ci` para instalar
+exatamente as versoes validadas no CI. Use `npm install` somente ao adicionar ou
+atualizar dependencias e versione o lockfile resultante.
 
 Suba o PostgreSQL com Docker Compose:
 
@@ -145,7 +153,7 @@ Tabelas principais:
 | `id` | serial | Chave primaria. |
 | `username` | varchar | Obrigatorio e unico. |
 | `password` | varchar | Hash da senha. |
-| `role` | varchar | Deve ser `Aluno` ou `Professor`. |
+| `role` | varchar | Deve ser `Aluno`, `Professor` ou `Administrador`. |
 
 ### `person`
 
@@ -156,7 +164,7 @@ Tabelas principais:
 | `name` | varchar | Nome da pessoa. |
 | `birth` | date | Data de nascimento. |
 | `email` | varchar | E-mail. |
-| `role` | varchar | Deve ser `Aluno` ou `Professor`. |
+| `role` | varchar | Deve ser `Aluno`, `Professor` ou `Administrador`. |
 | `user_id` | integer | Referencia opcional e unica para `user.id`. |
 
 No DER atual, `name` e `email` sao obrigatorios no cadastro da API. `cpf` e `birth` sao opcionais.
@@ -187,7 +195,7 @@ erDiagram
     int id PK "serial"
     varchar username UK "obrigatorio"
     varchar password "hash bcrypt"
-    varchar role "Aluno | Professor"
+    varchar role "Aluno | Professor | Administrador"
   }
 
   PERSON {
@@ -196,7 +204,7 @@ erDiagram
     varchar name "obrigatorio"
     date birth "opcional"
     varchar email "obrigatorio"
-    varchar role "Aluno | Professor"
+    varchar role "Aluno | Professor | Administrador"
     int user_id FK "opcional, unico"
   }
 
@@ -208,7 +216,7 @@ erDiagram
 - `user.id` e a chave primaria da tabela `"user"`.
 - `user.username` e unico e usado no login.
 - `user.password` armazena o hash da senha, nao a senha em texto puro.
-- `user.role` aceita apenas `Aluno` ou `Professor`.
+- `user.role` aceita apenas `Aluno`, `Professor` ou `Administrador`.
 - `person.id` e a chave primaria da tabela `person`.
 - `person.user_id` referencia `user.id`, pode ser nulo e e unico quando preenchido.
 - A consulta `GET /user/:identifier` faz `LEFT JOIN` entre `"user"` e `person`, usando `person.user_id = user.id`.
@@ -244,6 +252,7 @@ As roles aceitas sao:
 
 - `Aluno`
 - `Professor`
+- `Administrador`
 
 ## Rotas da Aplicacao
 
@@ -251,7 +260,7 @@ As roles aceitas sao:
 | --- | --- | --- | --- |
 | `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
-| `GET` | `/user?role=Aluno|Professor` | Bearer Token | Lista usuarios, com filtro opcional por role. |
+| `GET` | `/user?role=Aluno|Professor|Administrador` | Bearer Token | Lista usuarios, com filtro opcional por role. |
 | `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
 | `GET` | `/users?ids=...` | Bearer Token | Busca multiplos usuarios por IDs. |
@@ -360,6 +369,8 @@ Authorization: Bearer <token>
 ```
 
 A rota usa o `sub` do JWT para buscar o usuario autenticado.
+Quando o usuario nao possui registro vinculado em `person`, os campos `name` e
+`email` sao retornados como `null`.
 
 Resposta `200`:
 
@@ -388,7 +399,8 @@ Authorization: Bearer <token>
 ```
 
 Retorna todos os usuarios registrados/criados, sem senha ou campos sensiveis.
-O parametro opcional `role` filtra os usuarios por `Aluno` ou `Professor`.
+O parametro opcional `role` filtra os usuarios por `Aluno`, `Professor` ou
+`Administrador`.
 
 Resposta `200`:
 
@@ -421,7 +433,8 @@ curl "http://localhost:3000/user?role=Professor" \
   -H "Authorization: Bearer <token>"
 ```
 
-Uma `role` diferente de `Aluno` ou `Professor` retorna HTTP `400`.
+Uma `role` diferente de `Aluno`, `Professor` ou `Administrador` retorna HTTP
+`400`.
 
 ### Buscar Usuario por ID
 
@@ -622,6 +635,7 @@ Os testes validam:
 - rejeicao de credenciais invalidas;
 - protecao de rota privada;
 - retorno do usuario autenticado com `/user/whoami`;
+- retorno do usuario autenticado sem perfil vinculado em `person`;
 - listagem autenticada de todos os usuarios;
 - filtro e validacao da listagem de usuarios por role;
 - busca autenticada de usuario;
@@ -629,7 +643,36 @@ Os testes validam:
 - busca autenticada de multiplos usuarios por IDs;
 - resposta `404` para usuario inexistente.
 
+## Seguranca e CI
+
+O workflow `.github/workflows/ci.yml` executa, nesta ordem:
+
+1. instalacao com `npm ci` em Node.js 22;
+2. testes com `npm test`;
+3. scan do repositorio com Trivy para vulnerabilidades `HIGH` e `CRITICAL`;
+4. build e publicacao da imagem Docker em pushes para `main` ou tags;
+5. acionamento do deploy no Render depois da publicacao da imagem.
+
+O scan ignora vulnerabilidades sem correcao disponivel e interrompe o pipeline
+quando encontra vulnerabilidades corrigiveis de severidade alta ou critica.
+
+Para reproduzir as validacoes localmente:
+
+```bash
+npm ci
+npm test
+npm run build
+trivy fs --ignore-unfixed --severity HIGH,CRITICAL --skip-dirs node_modules .
+```
+
+O Dependabot verifica diariamente as dependencias dos GitHub Actions. As
+dependencias npm permanecem controladas pelo `package.json`, pelo
+`package-lock.json` e pelo scan do Trivy.
+
 ## Docker
+
+A imagem da API usa `node:22-alpine`, instala dependencias com `npm ci`, define
+`NODE_ENV=production` e expoe a porta `3000`.
 
 Build da imagem:
 
@@ -653,8 +696,17 @@ Servicos do `docker-compose.yml`:
 
 | Servico | Porta | Descricao |
 | --- | --- | --- |
-| `postgres` | `5432` | Banco PostgreSQL 16. |
+| `postgres` | `5432` | Banco PostgreSQL 18. |
 | `pgadmin` | `8080` | Interface web para administrar o banco. |
+
+No PostgreSQL 18, o volume `postgres_data` e montado em
+`/var/lib/postgresql`. O diretorio de dados padrao da imagem e
+`/var/lib/postgresql/18/docker`.
+
+Um volume inicializado pelo PostgreSQL 16 nao deve ser iniciado diretamente
+com a imagem 18. Para preservar dados existentes, realize a migracao entre
+versoes principais com `pg_upgrade` ou exporte e restaure o banco antes de
+trocar a imagem.
 
 ## Estrutura do Projeto
 

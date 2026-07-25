@@ -2,6 +2,7 @@ import { In, Repository } from 'typeorm'
 
 import { IPerson, PersonRole } from '@/entities/models/person.interface'
 import { IUser } from '@/entities/models/user.interface'
+import { IUserWithPerson } from '@/entities/models/user-with-person.interface'
 import { Person } from '@/entities/person.entity'
 import { User } from '@/entities/user.entity'
 import { appDataSource } from '@/lib/typeorm/typeorm'
@@ -18,7 +19,7 @@ export class UserRepository implements IUserRepository {
 
   async findAllWithPerson(
     role?: PersonRole,
-  ): Promise<Array<IUser & Partial<IPerson>>> {
+  ): Promise<IUserWithPerson[]> {
     const query = this.userRepository
       .createQueryBuilder('user')
       .leftJoin('person', 'person', 'person.user_id = user.id')
@@ -40,12 +41,12 @@ export class UserRepository implements IUserRepository {
 
     const users = await query
       .orderBy('user.id', 'ASC')
-      .getRawMany<IUser & Partial<IPerson>>()
+      .getRawMany<IUserWithPerson>()
 
     return users
   }
 
-  async findWithPerson(user_id: number): Promise<(IUser & IPerson) | undefined> {
+  async findWithPerson(user_id: number): Promise<IUserWithPerson | undefined> {
     const user = await this.userRepository
       .createQueryBuilder('user')
       .leftJoin('person', 'person', 'person.user_id = user.id')
@@ -61,12 +62,12 @@ export class UserRepository implements IUserRepository {
         'person.user_id AS user_id',
       ])
       .where('user.id = :user_id', { user_id })
-      .getRawOne<IUser & IPerson>()
+      .getRawOne<IUserWithPerson>()
 
     return user ?? undefined
   }
 
-  async findWithPersonByName(name: string): Promise<Array<IUser & IPerson>> {
+  async findWithPersonByName(name: string): Promise<IUserWithPerson[]> {
     const users = await this.userRepository
       .createQueryBuilder('user')
       .leftJoin('person', 'person', 'person.user_id = user.id')
@@ -82,14 +83,14 @@ export class UserRepository implements IUserRepository {
         'person.user_id AS user_id',
       ])
       .where('LOWER(person.name) LIKE LOWER(:name)', { name: `%${name}%` })
-      .getRawMany<IUser & IPerson>()
+      .getRawMany<IUserWithPerson>()
 
     return users
   }
 
   async findManyWithPerson(
     ids: number[],
-  ): Promise<Array<IUser & Partial<IPerson>>> {
+  ): Promise<IUserWithPerson[]> {
     if (ids.length === 0) {
       return []
     }
@@ -107,7 +108,7 @@ export class UserRepository implements IUserRepository {
     const usersById = new Map(users.map((user) => [user.id, user]))
     const personsByUserId = new Map(
       persons
-        .filter((person) => person.user_id !== undefined)
+        .filter((person) => person.user_id != null)
         .map((person) => [person.user_id, person]),
     )
 
@@ -136,7 +137,7 @@ export class UserRepository implements IUserRepository {
 
   async findByUserName(
     username: string,
-  ): Promise<(IUser & Partial<IPerson>) | undefined> {
+  ): Promise<IUserWithPerson | undefined> {
     const user = await this.userRepository
       .createQueryBuilder('user')
       .leftJoin('person', 'person', 'person.user_id = user.id')
@@ -152,7 +153,7 @@ export class UserRepository implements IUserRepository {
         'person.user_id AS user_id',
       ])
       .where('user.username = :username', { username })
-      .getRawOne<IUser & Partial<IPerson>>()
+      .getRawOne<IUserWithPerson>()
 
     return user ?? undefined
   }
@@ -160,7 +161,7 @@ export class UserRepository implements IUserRepository {
   async create(
     user: IUser,
     person?: Omit<IPerson, 'id' | 'user_id'>,
-  ): Promise<(IUser & Partial<IPerson>) | undefined> {
+  ): Promise<IUserWithPerson | undefined> {
     return appDataSource.transaction(async (manager) => {
       const createdUser = await manager.save(User, user)
 

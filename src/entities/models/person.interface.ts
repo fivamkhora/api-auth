@@ -11,5 +11,5 @@ export interface IPerson {
   birth?: Date | null
   email: string
   role: PersonRole
-  user_id?: number
+  user_id?: number | null
 }

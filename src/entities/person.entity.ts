@@ -23,7 +23,7 @@ export class Person implements IPerson {
   role!: PersonRole
 
   @Column({ type: 'integer', nullable: true })
-  user_id?: number
+  user_id?: number | null
 
   constructor(
     cpf?: string,

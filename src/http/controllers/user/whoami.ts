@@ -16,8 +16,8 @@ export async function whoami(request: FastifyRequest, reply: FastifyReply) {
   return reply.status(200).send({
     id: user.id,
     username: user.username,
-    name: user.name,
-    email: user.email,
+    name: user.name ?? null,
+    email: user.email ?? null,
     role: user.role,
   })
 }

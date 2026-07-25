@@ -3,7 +3,7 @@ version: '3.9'
 services:
 
   postgres:
-    image: postgres:16
+    image: postgres:18
     container_name: myPostgres
     env_file:
       - .env
@@ -19,7 +19,7 @@ services:
       - "5432:5432"
 
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
 
   pgadmin:
     image: dpage/pgadmin4

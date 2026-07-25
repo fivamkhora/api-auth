@@ -1,12 +1,11 @@
-import { IPerson } from '@/entities/models/person.interface'
-import { IUser } from '@/entities/models/user.interface'
+import { IUserWithPerson } from '@/entities/models/user-with-person.interface'
 import { IUserRepository } from '@/repositories/user.repository.interface'
 import { InvalidCredentialsError } from '@/use-cases/errors/invalid-credentials-error'
 
 export class SignInUseCase {
   constructor(private userRepository: IUserRepository) {}
 
-  async handler(username: string): Promise<IUser & Partial<IPerson>> {
+  async handler(username: string): Promise<IUserWithPerson> {
     const user = await this.userRepository.findByUserName(username)
 
     if (!user) {

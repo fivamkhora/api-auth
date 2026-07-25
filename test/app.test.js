@@ -396,6 +396,36 @@ describe('API Auth', () => {
     })
   })
 
+  it('returns null person fields when the authenticated user has no profile', async () => {
+    mocks.findWithPerson.handler = async () => ({
+      id: 3,
+      username: 'admin',
+      password: 'hashed-password',
+      role: PersonRole.ADMIN,
+    })
+    const token = app.jwt.sign(
+      { username: 'admin', role: PersonRole.ADMIN },
+      { sub: '3' },
+    )
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/user/whoami',
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    })
+
+    assert.equal(response.statusCode, 200)
+    assert.deepEqual(response.json(), {
+      id: 3,
+      username: 'admin',
+      name: null,
+      email: null,
+      role: PersonRole.ADMIN,
+    })
+  })
+
   it('finds many authenticated users by ids without exposing passwords', async () => {
     let receivedIds
     mocks.findManyWithPerson.handler = async (ids) => {
