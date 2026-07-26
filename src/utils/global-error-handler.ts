@@ -21,6 +21,33 @@ export function globalErrorHandler(
     })
   }
 
+  if (error.validation) {
+    const issues: Record<string, string[]> = {}
+
+    for (const validationIssue of error.validation) {
+      const missingProperty = validationIssue.params.missingProperty as
+        | string
+        | undefined
+      const additionalProperty = validationIssue.params.additionalProperty as
+        | string
+        | undefined
+      const pathProperty = validationIssue.instancePath
+        .split('/')
+        .filter(Boolean)
+        .at(-1)
+      const property =
+        missingProperty ?? additionalProperty ?? pathProperty ?? 'request'
+
+      issues[property] ??= []
+      issues[property].push(validationIssue.message ?? 'Invalid value')
+    }
+
+    return reply.status(400).send({
+      message: 'Validation error',
+      issues,
+    })
+  }
+
   if (error instanceof ResourceNotFoundError) {
     return reply.status(404).send({ message: error.message })
   }

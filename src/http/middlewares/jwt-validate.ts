@@ -1,13 +1,18 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 
 const publicRoutes = ['POST-/user', 'POST-/user/signin']
+const publicRoutePrefixes = ['/docs']
 
 export async function validateJWT(request: FastifyRequest, reply: FastifyReply) {
   const routePath =
     request.url.split('?')[0].replace(/\/$/, '') || '/'
   const routeKey = `${request.method}-${routePath}`
 
-  if (publicRoutes.includes(routeKey)) {
+  const isPublicPrefix = publicRoutePrefixes.some(
+    (prefix) => routePath === prefix || routePath.startsWith(`${prefix}/`),
+  )
+
+  if (publicRoutes.includes(routeKey) || isPublicPrefix) {
     return
   }
 

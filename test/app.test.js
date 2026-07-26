@@ -49,6 +49,38 @@ describe('API Auth', () => {
     await app.close()
   })
 
+  it('serves the Swagger UI publicly at /docs/', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/docs/',
+    })
+
+    assert.equal(response.statusCode, 200)
+    assert.match(response.headers['content-type'], /text\/html/)
+    assert.match(response.body, /Swagger UI/)
+  })
+
+  it('publishes the OpenAPI document with public and protected methods', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/docs/json',
+    })
+    const document = response.json()
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(document.openapi, '3.0.3')
+    assert.ok(document.paths['/user'].post)
+    assert.ok(document.paths['/user/signin'].post)
+    assert.deepEqual(document.paths['/user'].post.security, undefined)
+    assert.deepEqual(document.paths['/users'].get.security, [
+      { bearerAuth: [] },
+    ])
+    assert.equal(
+      document.components.securitySchemes.bearerAuth.scheme,
+      'bearer',
+    )
+  })
+
   it('creates a user and does not expose the password', async () => {
     mocks.createUser.handler = async (user, person) => ({
       id: 1,

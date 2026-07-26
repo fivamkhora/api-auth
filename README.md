@@ -12,6 +12,7 @@ API de autenticacao e autorizacao de usuarios desenvolvida com Fastify, TypeScri
 - [Banco de dados](#banco-de-dados)
 - [Diagrama de entidades](#diagrama-de-entidades)
 - [Autenticacao](#autenticacao)
+- [Documentacao OpenAPI](#documentacao-openapi)
 - [Rotas da aplicacao](#rotas-da-aplicacao)
 - [Contratos da API](#contratos-da-api)
 - [Testes](#testes)
@@ -31,13 +32,17 @@ O sistema expoe uma API HTTP para:
 - retornar os dados do usuario autenticado pelo token JWT;
 - consultar dados de usuario autenticado por ID ou por nome parcial.
 - consultar multiplos usuarios por lista de IDs em uma unica chamada.
+- disponibilizar documentacao interativa OpenAPI com Swagger UI.
 
 As rotas publicas sao:
 
 - `POST /user`
 - `POST /user/signin`
+- `GET /docs/`
+- `GET /docs/json`
+- `GET /docs/yaml`
 
-A rota privada atual e:
+As rotas privadas atuais sao:
 
 - `GET /user/whoami`
 - `GET /user?role=Aluno|Professor|Administrador`
@@ -52,6 +57,7 @@ A rota privada atual e:
 - TypeORM
 - PostgreSQL 18
 - JWT com `@fastify/jwt`
+- OpenAPI 3.0.3 com `@fastify/swagger` e `swagger-ui-dist`
 - Zod
 - Bcrypt
 
@@ -175,17 +181,36 @@ As migrations ficam em:
 src/lib/typeorm/migrations
 ```
 
-Tambem existe um script SQL para execucao manual das migrations:
+Existem dois scripts SQL para execucao manual:
 
 ```text
-docs/manual-migrations.sql
+docs/create-schema-from-scratch.sql  # cria ou atualiza o schema final
+docs/manual-migrations.sql           # atualiza e compatibiliza uma base existente
 ```
 
-Exemplo de execucao manual com `psql`:
+Para criar o schema do zero, primeiro crie uma base e depois execute:
+
+```bash
+createdb -h localhost -p 5432 -U postgres api_auth
+psql -h localhost -p 5432 -U postgres -d api_auth -f docs/create-schema-from-scratch.sql
+```
+
+O script `create-schema-from-scratch.sql` tambem pode ser executado quando as
+tabelas ja existem. Ele adiciona colunas ausentes, atualiza nulabilidade e
+garante PKs, unicidade de `username`, checks de role e a FK de `person.user_id`.
+Se os dados existentes violarem alguma regra final, a transacao inteira e
+revertida.
+
+Para atualizar manualmente uma base existente:
 
 ```bash
 psql -h localhost -p 5432 -U postgres -d api_auth -f docs/manual-migrations.sql
 ```
+
+Os scripts possuem funcoes semelhantes e nao precisam ser executados em
+sequencia. Depois de usar scripts SQL manuais, nao execute
+`npm run migration:run` sem antes reconciliar o historico de migrations do
+TypeORM.
 
 ## Diagrama de Entidades
 
@@ -256,12 +281,42 @@ As roles aceitas sao:
 - `Professor`
 - `Administrador`
 
+## Documentacao OpenAPI
+
+A documentacao interativa e publica e fica disponivel em:
+
+```text
+http://localhost:3000/docs/
+```
+
+O documento OpenAPI tambem pode ser consumido diretamente:
+
+| Formato | Rota publica |
+| --- | --- |
+| JSON | `GET /docs/json` |
+| YAML | `GET /docs/yaml` |
+
+Para testar um metodo protegido na interface Swagger:
+
+1. execute `POST /user/signin` com `username` e `password`;
+2. copie o valor de `token` retornado;
+3. clique em `Authorize` na pagina `/docs/`;
+4. informe somente o token JWT e confirme;
+5. execute os metodos que exibem o cadeado de autenticacao.
+
+O Swagger adiciona automaticamente o prefixo `Bearer` ao header. A pagina e os
+arquivos OpenAPI sao publicos, mas os metodos protegidos continuam exigindo um
+JWT valido.
+
 ## Rotas da Aplicacao
 
 | Metodo | Rota | Autenticacao | Descricao |
 | --- | --- | --- | --- |
 | `POST` | `/user` | Publica | Cria um usuario e seu registro em `person`. |
 | `POST` | `/user/signin` | Publica | Autentica um usuario e retorna JWT. |
+| `GET` | `/docs/` | Publica | Interface Swagger UI. |
+| `GET` | `/docs/json` | Publica | Documento OpenAPI em JSON. |
+| `GET` | `/docs/yaml` | Publica | Documento OpenAPI em YAML. |
 | `GET` | `/user?role=Aluno|Professor|Administrador` | Bearer Token | Lista usuarios, com filtro opcional por role. |
 | `GET` | `/user/whoami` | Bearer Token | Retorna o usuario autenticado pelo token JWT. |
 | `GET` | `/user/:identifier` | Bearer Token | Busca usuario por ID numerico ou por nome parcial. |
@@ -632,6 +687,8 @@ npm test
 
 Os testes validam:
 
+- acesso publico ao Swagger UI e ao documento OpenAPI;
+- configuracao Bearer JWT dos metodos protegidos;
 - criacao de usuario;
 - login;
 - rejeicao de credenciais invalidas;
